@@ -14,7 +14,8 @@ var eggImg //I forget...
 var pk_Bitmap
 var ek_Bitmap
 
-
+var pk_FlickCount = 30 
+var ek_FlickCount = 30 
 //base(16,16) in 48x48
 //
 
@@ -102,6 +103,11 @@ var ek_comment = []
 
 //CK data
 var nowComment = 0
+
+var d_HP = 0
+var d_MP = 0
+var d_ATK = 0
+var d_DEF = 0
 //Battle data
 var pk_HPNow = 0
 var ek_HPNow = 0
@@ -110,6 +116,33 @@ var ek_MPNow = 0
 var battleLog={}
 var criticalFlag = false //for log display
 var koFlag = false
+
+var pk_MB = 0 //Metallic body
+var ek_MB = 0
+
+var battleInfo = //For ani display. record what happen in this round
+{
+	count : 0,
+	nowCount : -1,
+	type : {},   //event type, use string.
+	//PAE
+	//EAP
+	//PAEC
+	//EAPC
+	//EM1
+	//PM1
+	//PW
+	//EW
+	
+	value : {}  //event value (dmg etc.)
+}
+function pushBattleInfo(t,v)
+{
+	battleInfo.type[battleInfo.count] = t
+	battleInfo.value[battleInfo.count] = v
+	battleInfo.count = battleInfo.count+1
+}
+
 
 //some static value
 var NAME_LIMIT = 32
@@ -121,6 +154,9 @@ var BATTLELOG_MAX = 7
 var ImageUpBound = 20 //px
 var ImageLRBound = 30 //px
 
+var MP_ABSORB = 25
+var MP_CURE = 15
+var MP_MB = 20
 //State
 var STATE_SELECT_MODE=1
 //CK: create kaiju
@@ -129,12 +165,17 @@ var STATE_CK_STATDISPLAY=3
 var STATE_CK_INPUT_PKCOMMENT=4
 var STATE_CK_END=5
 
+var STATE_CK_SHOWCHANGE = 10
 //VS
 var STATE_VS_WAIT_INPUT=6
 var STATE_VS_FIGHT=7
 
 var STATE_VS_RESULT = 8
 
+var STATE_VS_SHOWANI = 9
+
+var STATE_VS_SHOWPK = 11
+var STATE_VS_SHOWEK = 12
 //
 function drawSpriteToCanvas(spr,x,y,sx,sy,w,h)
 {
@@ -500,12 +541,38 @@ function updateEnemyBitmap()
 function drawPK()
 {
 	//stretch_blit(pk_Bitmap,canvas,0,0,48,48,ImageLRBound,ImageUpBound,48*4,48*4)
-	stretch_blit(pk_Bitmap,canvas,0,0,48*4,48*4,ImageLRBound,ImageUpBound,48*4,48*4)
+	if (pk_FlickCount >= 30)
+	{
+		stretch_blit(pk_Bitmap,canvas,0,0,48*4,48*4,ImageLRBound,ImageUpBound,48*4,48*4)
+		
+	}
+	else if( (pk_FlickCount>=0 && pk_FlickCount <= 4) || (pk_FlickCount>=10 && pk_FlickCount <= 14) || (pk_FlickCount >=20 && pk_FlickCount <= 24) )
+	{
+		stretch_blit(pk_Bitmap,canvas,0,0,48*4,48*4,ImageLRBound,ImageUpBound,48*4,48*4)
+		pk_FlickCount = pk_FlickCount+1
+	}
+	else if( (pk_FlickCount>=5 && pk_FlickCount <= 9) || (pk_FlickCount>=15 && pk_FlickCount<=19) || (pk_FlickCount >=25 && pk_FlickCount<=29))
+	{
+		pk_FlickCount = pk_FlickCount+1
+	}
 }
 
 function drawEK()
 {
-	stretch_blit(ek_Bitmap,canvas,0,0,48*4,48*4,640-(ImageLRBound+(48*4)),ImageUpBound,48*4,48*4)
+	if (ek_FlickCount >= 30)
+	{
+		stretch_blit(ek_Bitmap,canvas,0,0,48*4,48*4,640-(ImageLRBound+(48*4)),ImageUpBound,48*4,48*4)
+		
+	}
+	else if( (ek_FlickCount>=0 && ek_FlickCount <= 4) || (ek_FlickCount>=10 && ek_FlickCount <= 14) || (ek_FlickCount >=20 && ek_FlickCount <= 24) )
+	{
+		stretch_blit(ek_Bitmap,canvas,0,0,48*4,48*4,640-(ImageLRBound+(48*4)),ImageUpBound,48*4,48*4)
+		ek_FlickCount = ek_FlickCount+1
+	}
+	else if( (ek_FlickCount>=5 && ek_FlickCount <= 9) || (ek_FlickCount>=15 && ek_FlickCount<=19) || (ek_FlickCount >=25 && ek_FlickCount<=29))
+	{
+		ek_FlickCount = ek_FlickCount+1
+	}
 }
 
 
@@ -530,6 +597,42 @@ function showCKInfo()
 		textout(canvas,font,"Press space to continue",x,y,15,fontColor);
 		
 	}
+	
+	else if(NowGameState == STATE_CK_SHOWCHANGE)
+	{
+		textout(canvas,font,"Day "+(nowComment),x,y,15,fontColor);
+		y=y+20
+		textout(canvas,font,"name: "+pk_name,x,y,15,fontColor);
+		y = y+20
+
+		//info
+		textout(canvas,font,"HP: "+(pk_HP-d_HP)+" -> "+pk_HP,x,y,15,fontColor);
+		y = y+20 
+		
+		textout(canvas,font,"MP: "+(pk_MP-d_MP)+" -> "+pk_MP,x,y,15,fontColor);
+		y = y+20
+		
+		textout(canvas,font,"ATK: "+(pk_ATK-d_ATK)+" -> "+pk_ATK,x,y,15,fontColor);
+		y = y+20
+		
+		textout(canvas,font,"DEF: "+(pk_DEF-d_DEF)+" -> "+pk_DEF,x,y,15,fontColor);
+		y=y+40
+		
+		textout(canvas,font,"「"+pk_comment[nowComment-1]+"」 You say to your kaiju.",x,y,15,fontColor)
+		y = y+20
+		
+		if (nowComment==3 || nowComment == 5 || nowComment == 8)
+		{
+			textout(canvas,font,"Your kaiju seems like got a new power.",x,y,15,fontColor)
+			y=y+20
+		}
+		else
+		{
+			//say something...?
+		}
+		
+		textout(canvas,font,"Press space to continue",x,y,15,fontColor);
+	}
 	else
 	{
 		if(nowComment != COMMENT_NUM_MAX)
@@ -551,15 +654,28 @@ function showCKInfo()
 		textout(canvas,font,"DEF: "+pk_DEF,x,y,15,fontColor);
 		y = y+20
 		y = y+20
-		if (nowComment==3 || nowComment == 5 || nowComment == 8)
-		{
-			textout(canvas,font,"Your kaiju seems like got a new power.",x,y,15,fontColor)
-			y=y+20
-		}
 	
 		if(nowComment <3)
 		{
-			textout(canvas,font,"Hey, why don't you talk with it, it looks so longly",x,y,15,fontColor);
+			textout(canvas,font,"Hey, why don't you talk with it, it looks so lonely",x,y,15,fontColor);
+			y=y+20
+		}
+		
+		else if(nowComment < 5)
+		{
+			textout(canvas,font,"Still growing...it looks so cute...",x,y,15,fontColor);
+			y=y+20
+		}
+		
+		else if(nowComment < 8)
+		{
+			textout(canvas,font,"I can't wait to see the final form of your kaiju",x,y,15,fontColor);
+			y=y+20
+		}
+		
+		else if (nowComment < COMMENT_NUM_MAX)
+		{
+			textout(canvas,font,"Almost done, a ultimate kaiju...",x,y,15,fontColor);
 			y=y+20
 		}
 		
@@ -569,6 +685,17 @@ function showCKInfo()
 			y=y+20
 			textout(canvas,font,"Now you can use your code let your kaiju fight with other!!",x,y,15,fontColor);
 			y=y+20
+			
+			var cx = ImageLRBound + 220
+			var cy = ImageUpBound
+			textout(canvas,font,"What you say to your kaiju",cx,cy,15,fontColor);
+			cy = cy+20
+			for(c = 0; c<10; c++)
+			{
+				textout(canvas,font,"「"+pk_comment[c]+"」",cx,cy,15,fontColor)
+				cy=cy+20
+			}
+			
 		}
 		//textout(canvas,font,"hint: Your",x,y,15,fontColor);
 		//y=y+20
@@ -576,6 +703,64 @@ function showCKInfo()
 	}
 	
 	
+}
+
+function showPKData() //with comment
+{
+	var x = ImageLRBound, y = 250
+	textout(canvas,font,"HP: "+pk_HPNow,x,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"MP: "+pk_MPNow,x,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"ATK: "+pk_ATK,x,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"DEF: "+pk_DEF,x,y,15,fontColor)
+	y = y+20
+	y = y+20
+	
+	var cx = ImageLRBound + 220
+	var cy = ImageUpBound
+	textout(canvas,font,"What player says to player's kaiju",cx,cy,15,fontColor);
+	cy = cy+20
+	for(c = 0; c<10; c++)
+	{
+		textout(canvas,font,"「"+pk_comment[c]+"」",cx,cy,15,fontColor)
+		cy=cy+20
+	}
+			
+	textout(canvas,font,"Press space to continue",x,y,15,fontColor);
+}
+
+function showEKData()
+{
+	var x = ImageLRBound, y = 250
+	textout(canvas,font,"HP: "+ek_HPNow,640-x-48*4,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"MP: "+ek_MPNow,640-x-48*4,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"ATK: "+ek_ATK,640-x-48*4,y,15,fontColor)
+	y = y+20
+	
+	textout(canvas,font,"DEF: "+ek_DEF,640-x-48*4,y,15,fontColor)
+	y = y+20
+	y = y+20
+	
+	var cx = ImageLRBound
+	var cy = ImageUpBound
+	textout(canvas,font,"What enemy says to enemy's kaiju",cx,cy,15,fontColor);
+	cy = cy+20
+	for(c = 0; c<10; c++)
+	{
+		textout(canvas,font,"「"+ek_comment[c]+"」",cx,cy,15,fontColor)
+		cy=cy+20
+	}
+	
+	textout(canvas,font,"Press space to continue",x,y,15,fontColor);
 }
 
 function showVSInfo()
@@ -734,6 +919,10 @@ function setPKData(d)
 	pk_MP = d.MP
 	pk_ATK = d.ATK
 	pk_DEF = d.DEF
+	for (c=0; c<10; c++)
+	{
+		pk_comment[c] = d.comment[c]
+	}
 }
 
 function setEKData(d)
@@ -747,6 +936,10 @@ function setEKData(d)
 	ek_MP = d.MP
 	ek_ATK = d.ATK
 	ek_DEF = d.DEF
+	for (c=0; c<10; c++)
+	{
+		ek_comment[c] = d.comment[c]
+	}
 }
 //stat:  max 255, start between 5~19
 //basic stat
@@ -806,16 +999,24 @@ function setNextInfo(v)
 		v = getRandomNumber()
 	v = myRandomNumber(v)
 	
-	pk_HP = pk_HP + calNextInfo(v,pk_HP)
+	
+	d_HP = calNextInfo(v,pk_HP)
+	pk_HP = pk_HP + d_HP//calNextInfo(v,pk_HP)
 	v = myRandomNumber(v)
-	pk_MP = pk_MP + calNextInfo(v,pk_MP)
+	
+	d_MP = calNextInfo(v,pk_MP)
+	pk_MP = pk_MP + d_MP//calNextInfo(v,pk_MP)
 	v = myRandomNumber(v)
-	pk_ATK = pk_ATK + calNextInfo(v,pk_ATK)
+	
+	d_ATK = calNextInfo(v,pk_ATK)
+	pk_ATK = pk_ATK + d_ATK//calNextInfo(v,pk_ATK)
 	v = myRandomNumber(v)
-	pk_DEF = pk_DEF + calNextInfo(v,pk_DEF)
+	
+	d_DEF = calNextInfo(v,pk_DEF)
+	pk_DEF = pk_DEF + d_DEF// + calNextInfo(v,pk_DEF)
 }
 
-function calDmg(a,d)
+function calDmg(a,d,mbtime)
 {
 	var d = a - d
 	if (d < 0)
@@ -826,7 +1027,22 @@ function calDmg(a,d)
 		d = Math.floor(d * 1.5)
 		criticalFlag = true
 	}
+	
+	if (mbtime > 0)
+	{
+		d = Math.ceil(d * 0.75)
+	}
 	return d
+}
+
+function calCure(m,n)
+{
+	var per = rand() % 8 + 8  //8~15%
+	var c = Math.floor(m * per)
+	n = n + c
+	if (n > m)
+		n = m
+	return n
 }
 
 function pushBattleLog(str)
@@ -960,7 +1176,7 @@ function playerInputComment()
 	{
 		if (pk_MP > 120)
 			pk_LEG = 1
-		else if(pk_HP < 140)
+		else if(pk_HP < 120)
 			pk_LEG = 2
 		else
 			pk_LEG = 0
@@ -968,9 +1184,9 @@ function playerInputComment()
 	}
 	else if (nowComment == 8) //body
 	{
-		if (pk_ATK > 180)
+		if (pk_ATK > 135)
 			pk_HAND = 2
-		else if(pk_DEF < 150)
+		else if(pk_DEF < 130)
 			pk_HAND = 1
 		else
 			pk_HAND = 0
@@ -997,12 +1213,6 @@ function checkVSInput(useNowPlayer)
 	else
 	{
 		var s = encStringToData(document.getElementById('pk-code').value)
-		/*pk_name = s.name
-		pk_TYPE = s.TYPE
-		pk_HP = s.HP
-		pk_MP = s.MP
-		pk_ATK = s.ATK
-		pk_DEF = s.DEF*/
 		if(checkIsVaildData(s))
 			setPKData(s)
 		else
@@ -1011,12 +1221,6 @@ function checkVSInput(useNowPlayer)
 	
 	//enemy
 	var s = encStringToData(document.getElementById('ek-code').value)
-	/*ek_name = s.name
-	ek_TYPE = s.TYPE
-	ek_HP = s.HP
-	ek_MP = s.MP
-	ek_ATK = s.ATK
-	ek_DEF = s.DEF*/
 	if (checkIsVaildData(s))
 		setEKData(s)
 	else
@@ -1037,7 +1241,6 @@ function checkVSInput(useNowPlayer)
 	koFlag = false
 	criticalFlag = false
 	
-	NowGameState = STATE_VS_FIGHT
 	//TODO: check data vaild
 }
 
@@ -1045,115 +1248,350 @@ function checkVSInput(useNowPlayer)
 function battleNextRound()
 {
 	//roll dice for who attack first //add spd system next time
+	
+	battleInfo.count = 0
+	battleInfo.nowCount = 0
+	var ek_tempHP = ek_HPNow
+	var pk_tempHP = pk_HPNow
+
 	if (rand() % 2 == 0) //player
 	{
-		var d = calDmg(pk_ATK,ek_DEF)
-		ek_HPNow = ek_HPNow - d
-		if (criticalFlag)
+		if (pk_TYPE != 0 && rand()>58980) //skill
 		{
-			criticalFlag = false
-			pushBattleLog("CRITICAL!! Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")		
-		}
-		else
-			pushBattleLog("Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")		
-			
-		if(rand()>58980) //about 10%
-		{
-			if(ek_MPNow>=10)
+			if (pk_TYPE==1 && pk_MPNow >= MP_MB)
 			{
-				ek_HPNow = ek_HPNow + d
-				ek_MPNow = ek_MPNow-10
-				pushBattleLog("Enemy "+ek_name+" uses auto cure, "+d+" dmg restore.")
-			}
+				pk_MB = 3
+				//Math.ceil(*0.75)
+			}//mb
+			else (pk_TYPE==2 && pk_MPNow >= MP_CURE)
+			{
+				pk_tempHP = calCure(pk_HP,pk_tempHP)
+			}//cure
+			
+			pushBattleInfo("PSKILL",pk_tempHP)
 		}
-		if(ek_HPNow <= 0)
+		else //attack
 		{
-			//go winner
-			ek_HPNow = 0
-			koFlag = true
-		}
-		else
-		{
-			d = calDmg(ek_ATK,pk_DEF)
-			pk_HPNow = pk_HPNow - d
+			var d = calDmg(pk_ATK,ek_DEF,ek_MB)
+			if(ek_MB>0)
+				ek_MB = ek_MB-1
+			ek_tempHP = ek_tempHP - d
 			if (criticalFlag)
 			{
 				criticalFlag = false
-				pushBattleLog("CRITICAL!! Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
+				//pushBattleLog("CRITICAL!! Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")		
+				pushBattleInfo("PAEC",d)
+				//ek_FlickCount = 0
 			}
 			else
-				pushBattleLog("Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
-			if(pk_HPNow <= 0)
 			{
-				//go loser
-				pk_HPNow = 0
-				koFlag = true
+				//pushBattleLog("Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")
+				pushBattleInfo("PAE",d)
+				//ek_FlickCount = 0
+			}
+				
+			if(rand()>58980) //about 10%
+			{
+				if(ek_TYPE==0 && ek_MPNow>=MP_ABSORB)
+				{
+					ek_tempHP = ek_tempHP + d
+					//pk_tempMP = pk_tempMP-10
+					//pushBattleLog("Enemy "+ek_name+" uses auto cure, "+d+" dmg restore.")
+					pushBattleInfo("ESKILL",ek_tempHP)
+				}
 			}
 		}
 		
+		if(ek_tempHP <= 0)  //TODO: check temp hp
+		{
+			//go winner
+			ek_tempHP = 0
+			//koFlag = true
+			pushBattleInfo("PW",0)
+		}
+		else
+		{
+			if (ek_TYPE != 0 && rand()>58980) //skill
+			{
+				if (ek_TYPE==1 && ek_MPNow>=MP_MB)
+				{
+					ek_MB = 3
+					//Math.ceil(*0.75)
+				}//mb
+				else (ek_TYPE==2 && ek_MPNow>=MP_CURE)
+				{
+					ek_tempHP = calCure(ek_HP,ek_tempHP)
+				}//cure
+				pushBattleInfo("ESKILL",ek_tempHP)
+			}
+			else
+			{
+				d = calDmg(ek_ATK,pk_DEF,pk_MB)
+				if(pk_MB>0)
+					pk_MB= pk_MB-1
+				pk_tempHP = pk_tempHP - d
+				if (criticalFlag)
+				{
+					criticalFlag = false
+					//pushBattleLog("CRITICAL!! Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
+					pushBattleInfo("EAPC",d)
+					//pk_FlickCount = 0
+				}
+				else
+				{
+					//pushBattleLog("Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
+					pushBattleInfo("EAP",d)
+					//pk_FlickCount = 0
+				}
+				if(rand()>58980) //about 10%
+				{
+					if(pk_TYPE == 0 && pk_MPNow>=MP_ABSORB)
+					{
+						pk_tempHP = pk_tempHP + d
+						//pk_MPNow = pk_MPNow-10
+						//pushBattleLog("Player "+pk_name+" uses auto cure, "+d+" dmg restore.")
+						pushBattleInfo("PSKILL",pk_tempHP)
+					}
+				}
+				if(pk_tempHP <= 0)
+				{
+					//go loser
+					pk_tempHP = 0
+					//koFlag = true
+					pushBattleInfo("EW",0)
+				}
+			}
+		}
 	}
 	else //enemy
 	{
-		var d = calDmg(ek_ATK,pk_DEF)
-		pk_HPNow = pk_HPNow - d
-		if (criticalFlag)
+		if (ek_TYPE != 0 && rand()>58980) //skill
 		{
-			criticalFlag = false
-			pushBattleLog("CRITICAL!! Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
-		}
-		else
-			pushBattleLog("Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
-		if(rand()>58980) //about 10%
-		{
-			if(pk_MPNow>=10)
+			if (ek_TYPE==1 && ek_MPNow>=MP_MB)
 			{
-				pk_HPNow = pk_HPNow + d
-				pk_MPNow = pk_MPNow-10
-				pushBattleLog("Player "+pk_name+" uses auto cure, "+d+" dmg restore.")
-			}
-		}
-		if(pk_HPNow <= 0)
-		{
-			//go loser
-			pk_HPNow = 0
-			koFlag = true
+				ek_MB = 3
+				//Math.ceil(*0.75)
+			}//mb
+			else (ek_TYPE==2 && ek_MPNow>=MP_CURE)
+			{
+				ek_tempHP = calCure(ek_HP,ek_tempHP)
+			}//cure
+			
+			pushBattleInfo("ESKILL",ek_tempHP)
 		}
 		else
 		{
-			d = calDmg(pk_ATK,ek_DEF)
-			ek_HPNow = ek_HPNow - d
+			var d = calDmg(ek_ATK,pk_DEF,pk_MB)
+			if(pk_MB>0)
+				pk_MB = pk_MB-1
+			pk_tempHP = pk_tempHP - d
 			if (criticalFlag)
 			{
 				criticalFlag = false
-				pushBattleLog("CRITICAL!! Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")		
+				//pushBattleLog("CRITICAL!! Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
+				pushBattleInfo("EAPC",d)
+				//pk_FlickCount = 0
 			}
 			else
-				pushBattleLog("Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")
-			if(ek_HPNow <= 0)
 			{
-				//go winner
-				ek_HPNow = 0
-				koFlag = true
+				//pushBattleLog("Enemy "+ek_name+" attack player "+pk_name+", "+d+" dmg.")
+				pushBattleInfo("EAP",d)
+				//pk_FlickCount = 0
+			}
+			if(rand()>58980) //about 10%
+			{
+				if(pk_TYPE == 0 && pk_MPNow>=MP_ABSORB)
+				{
+					pk_tempHP = pk_tempHP + d
+					//pk_MPNow = pk_MPNow-10
+					//pushBattleLog("Player "+pk_name+" uses auto cure, "+d+" dmg restore.")
+					pushBattleInfo("PSKILL",pk_tempHP)
+				}
+			}
+		}
+		
+		if(pk_tempHP <= 0)
+		{
+			//go loser
+			pk_tempHP = 0
+			//koFlag = true
+			pushBattleInfo("EW",0)
+		}
+		else
+		{
+			if (pk_TYPE != 0 && rand()>58980) //skill
+			{
+				if (pk_TYPE==1 && pk_MPNow>=MP_MB)
+				{
+					pk_MB = 3
+					//Math.ceil(*0.75)
+				}//mb
+				else (pk_TYPE==2 && pk_MPNow>=MP_CURE)
+				{
+					pk_tempHP = calCure(pk_HP,pk_tempHP)
+				}//cure
+				
+				pushBattleInfo("PSKILL",pk_tempHP)
+			}
+			else
+			{
+				d = calDmg(pk_ATK,ek_DEF,ek_MB)
+				if(ek_MB>0)
+					ek_MB = ek_MB-1
+				ek_tempHP = ek_tempHP - d
+				if (criticalFlag)
+				{
+					criticalFlag = false
+					//pushBattleLog("CRITICAL!! Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")		
+					pushBattleInfo("PAEC",d)
+					//ek_FlickCount = 0
+				}
+				else
+				{
+					//pushBattleLog("Player "+pk_name+" attack enemy "+ek_name+", "+d+" dmg.")
+					pushBattleInfo("PAE",d)
+					//ek_FlickCount = 0
+				}
+				
+				if(rand()>58980) //about 10%
+				{
+					if(ek_TYPE==0 && ek_MPNow>=MP_ABSORB)
+					{
+						ek_tempHP = ek_tempHP + d
+						//pk_tempMP = pk_tempMP-10
+						//pushBattleLog("Enemy "+ek_name+" uses auto cure, "+d+" dmg restore.")
+						pushBattleInfo("ESKILL",ek_tempHP)
+					}
+				}
+				if(ek_tempHP <= 0)
+				{
+					//go winner
+					ek_tempHP = 0
+					//koFlag = true
+					pushBattleInfo("PW",0)
+				}
 			}
 		}
 	}
+}
+
+
+function getNextBattleInfo()
+{
+	if (battleInfo.nowCount == battleInfo.count)
+		return
+	
+	var t = battleInfo.type[battleInfo.nowCount]
+	var v = battleInfo.value[battleInfo.nowCount]
+	//TODO: push log, cal dmg.
+	if (t == "PAE")
+	{
+		pushBattleLog("Player "+pk_name+" attack enemy "+ek_name+", "+v+" dmg.")
+		ek_FlickCount = 0
+		ek_HPNow = ek_HPNow - v
+		
+		if (ek_HPNow < 0)
+			ek_HPNow = 0
+		play_sample(fightNoise)
+	}
+	else if(t == "EAP")
+	{
+		pushBattleLog("Enemy "+ek_name+" attack player "+pk_name+", "+v+" dmg.")
+		pk_FlickCount = 0
+		pk_HPNow = pk_HPNow - v
+		
+		if (pk_HPNow < 0)
+			pk_HPNow = 0
+		play_sample(fightNoise)
+	}
+	else if(t == "PAEC")
+	{
+		pushBattleLog("CRITICAL!! Player "+pk_name+" attack enemy "+ek_name+", "+v+" dmg.")		
+		ek_FlickCount = 0
+		ek_HPNow = ek_HPNow - v
+		
+		if (ek_HPNow < 0)
+			ek_HPNow = 0
+		play_sample(fightNoise)
+	}
+	else if(t == "EAPC")
+	{
+		pushBattleLog("CRITICAL!! Enemy "+ek_name+" attack player "+pk_name+", "+v+" dmg.")
+		pk_FlickCount = 0
+		pk_HPNow = pk_HPNow - v
+		
+		if (pk_HPNow < 0)
+			pk_HPNow = 0
+		play_sample(fightNoise)
+	}
+	
+	else if (t == "PSKILL") //skill
+	{
+		var r = v
+		switch(pk_TYPE)
+		{
+		case 0: //absorb
+			pk_MPNow = pk_MPNow - MP_ABSORB
+			r = v - pk_HPNow
+			pushBattleLog("Player "+pk_name+" uses Damage absorb, "+r+" dmg restore.")
+			pk_HPNow = v
+			break;
+		case 1: //mb
+			pk_MPNow = pk_MPNow - MP_MB
+			pushBattleLog("Player "+pk_name+" uses Metallic body, damage reduce 25% thrice.")
+			break;
+		case 2: //cure
+			pk_MPNow = pk_MPNow - MP_CURE
+			r = v - pk_HPNow
+			pushBattleLog("Player "+pk_name+" uses Cure, "+r+" dmg restore.")
+			pk_HPNow = v
+			break;
+		}
+		play_sample(evolveSE)
+	}
+	else if (t == "ESKILL")
+	{
+		var r = v
+		switch(ek_TYPE)
+		{
+		case 0: //absorb
+			ek_MPNow = ek_MPNow - MP_ABSORB
+			r = v - ek_HPNow
+			pushBattleLog("Enemy "+ek_name+" uses Damage absorb, "+r+" dmg restore.")
+			ek_HPNow = v
+			break;
+		case 1: //mb
+			ek_MPNow = ek_MPNow - MP_MB
+			pushBattleLog("Enemy "+ek_name+" uses Metallic body, damage reduce 25% thrice.")
+			break;
+		case 2: //cure
+			ek_MPNow = ek_MPNow - MP_CURE
+			r = v - ek_HPNow
+			pushBattleLog("Enemy "+ek_name+" uses Cure, "+r+" dmg restore.")
+			ek_HPNow = v
+			break;
+		}
+		play_sample(evolveSE)
+	}
+	else if(t == "PW")
+	{
+		pushBattleLog("Enemy fainted!!")
+		koFlag = true
+	}
+	else if(t == "EW")
+	{
+		pushBattleLog("Player fainted!!")
+		koFlag = true
+	}
+	
 	
 }
 //TODO: hash function to change value
-
-
-
-
-
 //function play
 
 
 function draw()
 {
-	//textout(canvas,font,name+" Type check:"+getKaijuType(nameChange),x,y,24,makecol(0,0,0));
-	//draw_sprite(canvas,dummySprite,200,200)
-	//pivot_sprite(canvas,dummySprite,200,200,
-	//blit(dummySprite,canvas,0,0,0,0,64,64) //draw sprite sheet
 	clear_to_color(canvas,makecol(0,0,0));
 	switch(NowGameState)
 	{
@@ -1167,8 +1605,12 @@ function draw()
 		showCKInfo()
 		break;
 		
+	case STATE_CK_SHOWCHANGE:
+		showCKInfo()
+		drawPK()
+		break;
+		
 	case STATE_CK_STATDISPLAY:
-		//scaled_sprite(canvas,pk_Bitmap,200,200,4,4)
 		showCKInfo()
 		drawPK()
 		break;
@@ -1187,9 +1629,18 @@ function draw()
 		textout(canvas,font,"Wait code input",x,y,15,fontColor);
 		textout(canvas,font,"Press Space to continue",x,y+20,15,fontColor)
 		
-		drawPK()
-		drawEK()
+		//drawPK()
+		//drawEK()
 		break;
+	
+	case STATE_VS_SHOWPK:
+		showPKData()
+		drawPK()
+		break;
+	case STATE_VS_SHOWEK:
+		showEKData()
+		drawEK()
+		break
 
 	case STATE_VS_FIGHT:
 		showVSInfo()
@@ -1209,7 +1660,13 @@ function draw()
 			drawPK()
 			textout(canvas,font,"Winner:" + pk_name,20,350,15,fontColor);
 		}
-		
+		break;
+	case STATE_VS_SHOWANI:
+		showVSInfo()
+		showBattleLog()
+		drawPK()
+		drawEK()
+		break;
 	default:
 		break;
 	}
@@ -1246,7 +1703,14 @@ function update()
 			NowGameState = STATE_CK_STATDISPLAY
 		}
 		break;
-		
+	
+	case STATE_CK_SHOWCHANGE:
+		if (pressed[KEY_SPACE])
+		{
+			NowGameState = STATE_CK_STATDISPLAY
+		}
+		break
+	
 	case STATE_CK_STATDISPLAY:
 		if (pressed[KEY_SPACE])
 			NowGameState = STATE_CK_INPUT_PKCOMMENT
@@ -1263,39 +1727,51 @@ function update()
 			NowGameState = STATE_CK_END
 		}
 		else
-			NowGameState = STATE_CK_STATDISPLAY
+			NowGameState = STATE_CK_SHOWCHANGE
 		break;
 		
 	case STATE_CK_END:
-		//if (pressed[KEY_A])
 		if (pressed[KEY_SPACE])
 		{
-			//jsonData = encStringToData(document.getElementById('pk-code').value)
 			NowGameState = STATE_SELECT_MODE
 		}
 		break;
 	
 	case STATE_VS_WAIT_INPUT:
 		if (pressed[KEY_SPACE])
+		{
 			checkVSInput(false)
+			NowGameState = STATE_VS_SHOWPK
+		}
+		break;
+	
+	case STATE_VS_SHOWPK:
+		if (pressed[KEY_SPACE])
+			NowGameState = STATE_VS_SHOWEK
+		break;
+		
+	case STATE_VS_SHOWEK:
+		if (pressed[KEY_SPACE])
+		{
+			NowGameState = STATE_VS_FIGHT
+			pushBattleLog("Press space to start")
+		}
 		break;
 	
 	case STATE_VS_FIGHT:
 	
-		if(koFlag == true && fightNoise.element.paused == true)
+		if(koFlag == true/*fightNoise.element.paused == true && */)
 		{
 			if(pressed[KEY_SPACE])
 				NowGameState = STATE_VS_RESULT
 		}
-		else if(fightNoise.element.paused == true)
-		{
-			if (pressed[KEY_SPACE])
-			{
-				play_sample(fightNoise)
-				battleNextRound()
-			}
-		}
 			
+		else if(pressed[KEY_SPACE])
+		{
+			//get next round info, pass to vs ani.
+			battleNextRound()
+			NowGameState = STATE_VS_SHOWANI
+		}
 		break;
 		
 	case STATE_VS_RESULT:
@@ -1303,6 +1779,21 @@ function update()
 			NowGameState = STATE_SELECT_MODE
 		break;
 	
+	case STATE_VS_SHOWANI:
+		//get info and show. if no info, back to fight.
+		if (fightNoise.element.paused == true && evolveSE.element.paused == true && pk_FlickCount>=30 && ek_FlickCount>=30)
+		{
+			getNextBattleInfo()
+			
+			if (battleInfo.nowCount == battleInfo.count)
+			{
+				NowGameState = STATE_VS_FIGHT
+			}
+			battleInfo.nowCount = battleInfo.nowCount+1
+		}
+		
+		
+		break;
 	default:
 		break;
 	}
@@ -1324,3 +1815,14 @@ function main()
 END_OF_MAIN();
 
  
+ 
+//Generate enemy by random
+function enemyGenerator()
+{
+	//console.log("test")
+	
+	//TODO: get name from list.
+	//TODO: get 10 comment from list
+	//TODO: generate code.
+	//TODO: test
+}
